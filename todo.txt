@@ -1,0 +1,5 @@
+- Faire les docstrings.
+- Gerer les erreurs.
+- Faire un README.
+- Comparer sa logique avec un autre eleve
+- Pensez au live coding de la correction. (afficher les infos de la zone et son nb de drone.)
