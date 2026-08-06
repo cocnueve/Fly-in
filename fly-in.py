@@ -124,7 +124,7 @@ if __name__ == "__main__":
     try:
         parser = Parser()
         pathfinder = Pathfinder()
-        graph = parser.parse_file("/home/ffeder/Desktop/3e cercle/Fly-in/config.txt")
+        graph = parser.parse_file("/mnt/f/coc9/Documents/code/Fly-in/config.txt")
         pathfinded = pathfinder.find_shortest_path(graph, graph.start, graph.end)
         fact = DroneFactory()
         drone_list = []

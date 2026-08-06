@@ -17,7 +17,7 @@ class Zone(BaseModel):
     y: int = Field(ge=-30, le=30)
     zone_type: ZoneType = Field(default=ZoneType.NORMAL)
     color: Optional[str] = Field(default=None)
-    max_drones: int = Field(default=1, ge=0, le=25)
+    max_drones: Optional[int] = Field(default=1, ge=0, le=25)
     current_drones: List["Drone"] = Field(default_factory=list)  # drones présents ce tour
     waiting: Optional[int] = Field(default=0, ge=0, le=1000)
     temp_zone: Optional["ZoneType"] = Field(default=None)
@@ -201,7 +201,7 @@ class Drone(BaseModel):
 class Graph(BaseModel):
     zones: dict[str, Zone] = Field(default_factory=dict)
     connections: list[Connection] = Field(default_factory=list)
-    nb_drones: Optional[int] = Field(ge=0, le=50, default=None)
+    nb_drones: int = Field(default=0, ge=0, le=50)
     start: Optional[Zone] = Field(default=None)
     end: Optional[Zone] = Field(default=None)
 

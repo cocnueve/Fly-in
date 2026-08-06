@@ -1,4 +1,5 @@
-from typing import Callable
+from __future__ import annotations
+from typing import Callable, Any
 from pydantic import ValidationError
 from system import Graph, Connection, Zone, ZoneType
 import sys
@@ -7,7 +8,7 @@ import sys
 class Parser:
     """Parse un fichier de carte de drones."""
 
-    def parse_file(self, filepath: str) -> Callable:
+    def parse_file(self, filepath: str) -> Graph:
         """Charge et parse un fichier de carte."""
         graph = Graph()
         parse_dict = {}
@@ -54,7 +55,6 @@ class Parser:
                             zone.zone_type = temp_dict["zone"]
                         if "color" in temp_dict:
                             zone.color = temp_dict["color"]
-                            print(zone.color)
                         if "max_drones" in temp_dict:
                             zone.max_drones = int(temp_dict["max_drones"])
                         z += 1
@@ -101,7 +101,7 @@ class Parser:
 
         return graph
 
-    def parse_line(self, line: str) -> dict:
+    def parse_line(self, line: str) -> dict[str, Any]:
         if line.startswith("nb_drones"):
             key, value = line.split(":")
             drone_info = {
@@ -110,13 +110,13 @@ class Parser:
             return drone_info
         elif line.startswith(("start_hub", "end_hub", "hub")):
             key, value = line.split(":")
-            value = value.split()
-            name, x, y, *feat = value
-            zone_info = {
+            values = value.split()
+            name, x, y, *feat = values
+            zone_info: dict[str, Any] = {
                 "zone_name": name, "x": x, "y": y,
             }
-            feat = [f.strip("[]") for f in feat]
-            for f in feat:
+            features = [f.strip("[]") for f in feat]
+            for f in features:
                 kf, vf = f.split("=")
                 if kf in ["zone", "color", "max_drones"]:
                     if vf == "restricted":
@@ -133,18 +133,22 @@ class Parser:
 
         elif line.startswith("connection"):
             key, value = line.split(":")
-            value = value.replace("-", " ")
-            value = value.split()
-            value = [v.strip('[]') for v in value]
-            loc_a, loc_b, *feat = value
+            connection_value = value.replace("-", " ")
+            connection_values = connection_value.split()
+            connection_values = [v.strip("[]") for v in connection_values]
+
+            loc_a, loc_b, *conn_features = connection_values
             conn_info = {
                 "loc_a": loc_a, "loc_b": loc_b,
             }
-            for f in feat:
+            for f in conn_features:
                 key2, value2 = f.split("=")
                 if key2 in ["max_link_capacity", "color", "max_drones"]:
                     conn_info[key2] = value2
             return conn_info
+            
+        else:
+            return {}
 
 
 if __name__ == "__main__":
