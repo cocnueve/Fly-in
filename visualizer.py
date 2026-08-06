@@ -1,3 +1,11 @@
+"""Visualisation Tkinter en temps réel de la simulation Fly-in.
+
+Ce module dessine la carte (zones et connexions) sur un canvas Tkinter
+et rafraîchit à chaque tour la position des drones, leur état
+(couleur) et les informations d'occupation/file d'attente de chaque
+zone.
+"""
+
 import tkinter as tk
 import math
 
@@ -48,6 +56,13 @@ class Visualizer:
     """
 
     def __init__(self, graph, width=1920, height=1080):
+        """Construit la fenêtre et dessine la carte statique initiale.
+
+        Args:
+            graph: Le graphe (`Graph`) à afficher.
+            width: Largeur de la fenêtre/canvas, en pixels.
+            height: Hauteur de la fenêtre/canvas, en pixels.
+        """
 
         self.graph = graph
         self.closed = False
@@ -92,6 +107,12 @@ class Visualizer:
         self._draw_legend()
 
     def _calculate_scale(self):
+        """Calcule le facteur de zoom et le décalage pour centrer la carte.
+
+        Détermine `self.scale`, `self.offset_x` et `self.offset_y` de
+        façon à ce que toutes les zones du graphe tiennent dans le
+        canvas, avec une marge, quelle que soit l'étendue de la carte.
+        """
 
         zones = list(self.graph.zones.values())
 
@@ -123,6 +144,7 @@ class Visualizer:
         self.offset_y = self.height / 2 - center_y * self.scale
 
     def _compute_positions(self):
+        """Convertit les coordonnées (x, y) de chaque zone en pixels."""
 
         for name, zone in self.graph.zones.items():
             x = zone.x * self.scale + self.offset_x
@@ -130,6 +152,7 @@ class Visualizer:
             self.zone_pos[name] = (x, y)
 
     def _draw_connections(self):
+        """Dessine toutes les connexions (lignes) entre zones."""
 
         for conn in self.graph.connections:
             x1, y1 = self.zone_pos[
@@ -161,6 +184,7 @@ class Visualizer:
                 )
 
     def _draw_zones(self):
+        """Dessine chaque zone (cercle coloré + texte d'info dessous)."""
 
         for name, zone in self.graph.zones.items():
             x, y = self.zone_pos[name]
@@ -189,12 +213,14 @@ class Visualizer:
 
     @staticmethod
     def _zone_info(zone):
+        """Retourne le texte affiché sous une zone (occupation, file)."""
         return (
             f"Drones : {len(zone.current_drones)}/{zone.max_drones}\n"
             f"Waiting : {zone.waiting}"
         )
 
     def _refresh_zones(self):
+        """Met à jour le texte d'info affiché sous chaque zone."""
         for name, zone in self.graph.zones.items():
             if name in self.zone_text:
                 self.canvas.itemconfig(
@@ -203,11 +229,13 @@ class Visualizer:
                 )
 
     def _clear_drones(self):
+        """Supprime du canvas tous les dessins de drones du tour précédent."""
         for item in self.drone_items:
             self.canvas.delete(item)
         self.drone_items = []
 
     def _drone_color(self, drone):
+        """Retourne la couleur d'affichage associée à l'état du drone."""
         state = str(
             getattr(
                 drone,
@@ -222,6 +250,11 @@ class Visualizer:
         return DRONE_COLORS["DEFAULT"]
 
     def _draw_drones(self, drone_list):
+        """Dessine tous les drones, répartis en cercle autour de leur zone.
+
+        Args:
+            drone_list: Liste de tous les drones de la simulation.
+        """
         self._clear_drones()
         grouped = {}
         for drone in drone_list:
@@ -288,6 +321,7 @@ class Visualizer:
                 )
 
     def _draw_legend(self):
+        """Dessine la légende des couleurs en haut à droite de la fenêtre."""
         x = self.width - 150
         y = 80
         self.canvas.create_text(
@@ -321,6 +355,14 @@ class Visualizer:
             )
 
     def update(self, drone_list, tour):
+        """Rafraîchit l'affichage pour le tour courant de la simulation.
+
+        Ne fait rien si la fenêtre a déjà été fermée par l'utilisateur.
+
+        Args:
+            drone_list: Liste de tous les drones de la simulation.
+            tour: Numéro du tour courant, affiché dans le titre.
+        """
         if self.closed:
             return
 
@@ -334,10 +376,12 @@ class Visualizer:
         self.root.update()
 
     def _on_close(self):
+        """Callback appelé à la fermeture de la fenêtre par l'utilisateur."""
         self.closed = True
         self.root.destroy()
 
     def wait_until_closed(self):
+        """Bloque le programme jusqu'à la fermeture de la fenêtre."""
 
         if not self.closed:
             self.root.mainloop()

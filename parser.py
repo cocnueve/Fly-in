@@ -1,5 +1,16 @@
+"""Parseur de fichiers de carte pour le simulateur Fly-in.
+
+Un fichier de carte texte (voir dossier `maps/`) décrit, ligne par ligne :
+- le nombre de drones à simuler (`nb_drones: ...`),
+- les zones/hubs (`start_hub: ...`, `end_hub: ...`, `hub: ...`),
+- les connexions entre zones (`connection: zoneA-zoneB [...]`).
+
+Ce module transforme ce texte en un objet `Graph` exploitable par le
+reste du programme (`fly-in.py`, `visualizer.py`).
+"""
+
 from __future__ import annotations
-from typing import Callable, Any
+from typing import Any
 from pydantic import ValidationError
 from system import Graph, Connection, Zone, ZoneType
 import sys
@@ -9,7 +20,28 @@ class Parser:
     """Parse un fichier de carte de drones."""
 
     def parse_file(self, filepath: str) -> Graph:
-        """Charge et parse un fichier de carte."""
+        """Charge et parse un fichier de carte.
+
+        Lit le fichier ligne par ligne, ignore les lignes vides et les
+        commentaires (`#`), puis délègue le parsing de chaque ligne
+        utile à `parse_line`. Construit ensuite les zones et les
+        connexions correspondantes et les assemble dans un `Graph`.
+
+        Les erreurs de validation pydantic (valeurs hors bornes,
+        champs manquants...) et les erreurs de connexion (zones
+        inconnues) sont affichées sur la sortie standard plutôt que
+        de faire planter tout le parsing : la ligne fautive est
+        simplement ignorée et le parsing continue.
+
+        Args:
+            filepath: Chemin vers le fichier de carte à parser.
+
+        Returns:
+            Le graphe (`Graph`) construit à partir du fichier.
+
+        Raises:
+            ValueError: Si le fichier n'existe pas.
+        """
         graph = Graph()
         parse_dict = {}
         conn_list = []
@@ -34,7 +66,11 @@ class Parser:
                     if "nb_drones" in temp_dict:
                         graph.nb_drones = temp_dict['nb_drones']
                     elif "zone_name" in temp_dict:
-                        if any(x in temp_dict["zone_name"] for x in ("start", "goal")):
+                        is_start_or_goal = any(
+                            x in temp_dict["zone_name"]
+                            for x in ("start", "goal")
+                        )
+                        if is_start_or_goal:
                             zone = Zone(
                                 name=temp_dict["zone_name"],
                                 x=temp_dict["x"],
@@ -66,7 +102,8 @@ class Parser:
 
                         if loc_a is None or loc_b is None:
                             raise Exception(
-                                f"Wrong connection : {temp_dict['loc_a']} - {temp_dict['loc_b']}"
+                                f"Wrong connection : {temp_dict['loc_a']}"
+                                f" - {temp_dict['loc_b']}"
                             )
 
                         conn = Connection(
@@ -78,7 +115,9 @@ class Parser:
                             conn.max_link = int(temp_dict["max_link_capacity"])
 
                         if "current_usage" in temp_dict:
-                            conn.current_usage = int(temp_dict["current_usage"])
+                            conn.current_usage = int(
+                                temp_dict["current_usage"]
+                            )
 
                         conn_list.append(conn)
 
@@ -89,7 +128,10 @@ class Parser:
                             champ = error["loc"][0]
                             message = error["msg"]
                             fail_input = error["input"]
-                            print(f"input {count_lines} : {champ}: {message}\n {fail_input} is not the good value.")
+                            print(
+                                f"input {count_lines} : {champ}: {message}\n"
+                                f" {fail_input} is not the good value."
+                            )
                     else:
                         print(e)
         except Exception as err:
@@ -102,6 +144,24 @@ class Parser:
         return graph
 
     def parse_line(self, line: str) -> dict[str, Any]:
+        """Parse une seule ligne du fichier de carte.
+
+        Reconnaît trois formats de ligne : `nb_drones: N`, une zone
+        (`start_hub:`, `end_hub:` ou `hub:`), ou une connexion
+        (`connection:`). Les attributs entre crochets (ex:
+        `[color=red max_drones=2]`) sont extraits sous forme de
+        dictionnaire.
+
+        Args:
+            line: La ligne de texte à parser (déjà nettoyée des
+                espaces superflus).
+
+        Returns:
+            Un dictionnaire décrivant l'élément trouvé sur la ligne
+            (clé `nb_drones`, ou `zone_name`/`x`/`y`/..., ou
+            `loc_a`/`loc_b`/...), ou un dictionnaire vide si la ligne
+            ne correspond à aucun format reconnu.
+        """
         if line.startswith("nb_drones"):
             key, value = line.split(":")
             drone_info = {
@@ -146,7 +206,7 @@ class Parser:
                 if key2 in ["max_link_capacity", "color", "max_drones"]:
                     conn_info[key2] = value2
             return conn_info
-            
+
         else:
             return {}
 
