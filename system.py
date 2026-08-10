@@ -1,10 +1,9 @@
-"""Modèles de données du simulateur Fly-in.
-
-Ce module définit les objets métier manipulés par le reste du programme :
-zones (`Zone`), connexions entre zones (`Connection`), drones (`Drone`)
-et le graphe complet de la carte (`Graph`). Tous ces objets sont des
-modèles pydantic, ce qui permet de valider automatiquement les valeurs
-lues depuis le fichier de carte (coordonnées, capacités, etc.).
+"""Fly-in Simulator Data Models.
+This module defines the business objects used by the rest of the program:
+zones (`Zone`), connections between zones (`Connection`), drones (`Drone`)
+and the complete map graph (`Graph`). All of these objects are
+PyDantic models, which allows for automatic validation of the values
+read from the map file (coordinates, capacities, etc.).
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ from enum import Enum
 
 
 class ZoneType(Enum):
-    """Type d'une zone, qui détermine son accessibilité et son coût."""
+    """The type of a zone, which determines its accessibility and cost."""
 
     NORMAL = "normal"       # coût 1 tour
     BLOCKED = "blocked"     # inaccessible
@@ -23,25 +22,25 @@ class ZoneType(Enum):
 
 
 class Zone(BaseModel):
-    """Une zone (hub) de la carte, pouvant accueillir des drones.
+    """An area (hub) on the map that can accommodate drones.
 
     Attributes:
-        name: Identifiant unique de la zone (ex: "start", "goal").
-        x: Coordonnée X sur la carte.
-        y: Coordonnée Y sur la carte.
-        zone_type: Type de la zone (normal, bloqué, restreint, prioritaire).
-        color: Couleur d'affichage (utilisée par le visualiseur).
-        max_drones: Nombre maximum de drones pouvant occuper la zone
-            en même temps.
-        current_drones: Liste des drones actuellement présents sur
-            la zone.
-        waiting: Nombre de drones actuellement en attente d'entrer
-            dans la zone.
-        temp_zone: Sauvegarde du type de zone d'origine lorsque la zone
-            est temporairement marquée BLOCKED (car pleine), afin de
-            pouvoir le restaurer une fois qu'une place se libère.
-        temp_drone: Champ réservé pour un usage futur (non utilisé
-            actuellement par la logique de simulation).
+        name: Unique identifier for the area (e.g., “start,” “goal”).
+        x: X coordinate on the map.
+        y: Y coordinate on the map.
+        zone_type: Type of area (normal, blocked, restricted, priority).
+        color: Display color (used by the viewer).
+        max_drones: Maximum number of drones that can occupy the zone
+            at the same time.
+        current_drones: List of drones currently present in
+            the zone.
+        waiting: Number of drones currently waiting to enter
+            the zone.
+        temp_zone: Saves the original zone type when the zone
+            is temporarily marked as BLOCKED (because it is full), so that
+            it can be restored once a spot becomes available.
+        temp_drone: Field reserved for future use (not currently
+            used by the simulation logic).
     """
 
     name: str = Field(min_length=1, max_length=30)
@@ -56,18 +55,13 @@ class Zone(BaseModel):
     temp_zone: Optional["ZoneType"] = Field(default=None)
     temp_drone: Optional["Drone"] = Field(default=None)
 
-    @model_validator(mode="after")
-    def validator(self):
-        """Point d'extension pydantic pour une validation croisée future."""
-        return self
-
     def is_accessible(self) -> int | None:
-        """Indique si la zone est traversable et avec quelle priorité.
+        """Indicates whether the area is passable and with what priority.
 
         Returns:
-            0 si la zone est bloquée (inaccessible), 1 si elle est
-            restreinte, 2 si elle est normale, 3 si elle est prioritaire,
-            ou None si le type de zone est inconnu.
+            0 if the area is blocked (inaccessible), 1 if it is
+            restricted, 2 if it is normal, 3 if it has priority,
+            or None if the area type is unknown.
         """
         if self.zone_type == ZoneType.BLOCKED:
             return 0
@@ -81,7 +75,7 @@ class Zone(BaseModel):
             return None
 
     def has_capacity(self) -> bool:
-        """Indique si la zone peut encore accueillir au moins un drone."""
+        """Indicates whether the area can still accommodate at least one drone."""
         if self.current_drones is None:
             return False
         if self.max_drones is None:
@@ -92,20 +86,20 @@ class Zone(BaseModel):
             return True
 
     def add_drone(self, drone: Drone) -> int:
-        """Tente de faire entrer un drone dans la zone.
+        """Attempts to have a drone enter the zone.
 
-        Le comportement dépend à la fois de la capacité de la zone, de
-        l'état de la connexion empruntée par le drone et du type de la
-        zone (normal, restreint, prioritaire...).
+        The behavior depends on the zone's capacity,
+        the status of the connection used by the drone, and the type of
+        zone (normal, restricted, priority, etc.).
 
         Args:
-            drone: Le drone qui tente d'entrer dans la zone.
+            drone: The drone attempting to enter the zone.
 
         Returns:
-            Un code entier indiquant le résultat de la tentative :
-            0/False si l'entrée est refusée, 1 si le drone entre en
-            transit dans une zone restreinte, 2 ou 3 si le drone entre
-            directement dans une zone normale ou prioritaire.
+            An integer code indicating the result of the attempt:
+            0/False if entry is denied, 1 if the drone enters
+            a restricted zone in transit, 2 or 3 if the drone enters
+            a normal or priority zone directly.
         """
         if self.has_capacity():
             result = self.is_accessible()
@@ -138,17 +132,17 @@ class Zone(BaseModel):
             return False
 
     def del_drone(self, drone: Drone) -> bool:
-        """Retire un drone de la zone, si celui-ci s'y trouve.
+        """Removes a drone from the zone, if one is present there.
 
-        Si la zone était temporairement bloquée parce qu'elle était
-        pleine, son type d'origine est restauré.
+        If the zone was temporarily blocked because it was
+        full, its original type is restored.
 
         Args:
-            drone: Le drone à retirer de la zone.
+            drone: The drone to remove from the zone.
 
         Returns:
-            True si le drone a bien été retiré, False s'il n'était
-            pas présent dans la zone.
+            True if the drone was successfully removed, False if it was
+            not present in the zone.
         """
         if drone in self.current_drones:
             self.current_drones.remove(drone)
@@ -162,7 +156,7 @@ class Zone(BaseModel):
             return False
 
     def info(self) -> str:
-        """Retourne une description lisible de l'état actuel de la zone."""
+        """Returns a human-readable description of the current state of the zone."""
         return (
             f"Name: {self.name}\nCoordinate: X={self.x}, Y={self.y}\
             \nZoneType: {self.zone_type}\
@@ -172,15 +166,15 @@ class Zone(BaseModel):
 
 
 class Connection(BaseModel):
-    """Une connexion (arête) entre deux zones du graphe.
+    """A connection (route) between two zones in the graph.
 
     Attributes:
-        zone_a: Une des deux zones reliées par la connexion.
-        zone_b: L'autre zone reliée par la connexion.
-        max_link: Nombre maximum de drones pouvant emprunter la
-            connexion simultanément.
-        current_usage: Nombre de drones actuellement en transit sur
-            cette connexion, pendant le tour courant.
+        zone_a: One of the two zones connected by the link.
+        zone_b: The other zone connected by the link.
+        max_link: The maximum number of drones that can use the
+            link simultaneously.
+        current_usage: The number of drones currently in transit on
+            this link during the current turn.
     """
 
     zone_a: Zone
@@ -189,15 +183,8 @@ class Connection(BaseModel):
     # drones en transit ce tour
     current_usage: Optional[int] = Field(default=0, ge=0, le=5)
 
-    @model_validator(mode="after")
-    def check_all(self):
-        """Vérifie, à la création, que la connexion n'est pas saturée."""
-        if not self.conn_capacity():
-            raise ValueError("Too many drones in the area.")
-        return self
-
     def conn_capacity(self) -> bool:
-        """Indique si la connexion peut encore accueillir un drone."""
+        """Indicates whether the connection can still accommodate a drone."""
         if self.max_link is None:
             return False
         if self.current_usage is None:
@@ -208,11 +195,11 @@ class Connection(BaseModel):
             return False
 
     def change_usage(self, order: int) -> None:
-        """Met à jour le nombre de drones en transit sur la connexion.
+        """Updates the number of drones in transit on the connection.
 
         Args:
-            order: 1 pour incrémenter l'usage courant d'un drone,
-                0 pour réinitialiser l'usage à zéro (nouveau tour).
+            order: 1 to increment a drone's current usage,
+                0 to reset usage to zero (new round).
         """
         if self.current_usage is not None:
             if order == 1:
@@ -222,7 +209,7 @@ class Connection(BaseModel):
 
 
 class DroneState(Enum):
-    """État courant d'un drone dans la simulation."""
+    """Current status of a drone in the simulation."""
 
     WAITING = "waiting"
     MOVING = "moving"
@@ -231,21 +218,21 @@ class DroneState(Enum):
 
 
 class Drone(BaseModel):
-    """Un drone qui suit un chemin (`path`) d'une zone à une autre.
+    """A drone that follows a path (`path`) from one zone to another.
 
     Attributes:
-        drone_id: Identifiant unique du drone.
-        current_zone: Zone dans laquelle se trouve actuellement le drone.
-        next_zone: Prochaine zone visée par le drone sur son chemin.
-        path: Liste ordonnée des zones que le drone doit traverser,
-            de la zone de départ jusqu'à la zone d'arrivée.
-        path_index: Index de la zone courante du drone dans `path`.
-        state: État courant du drone (en mouvement, en transit,
-            arrivé...).
-        remain: Compteur utilisé pour savoir si le drone est déjà
-            comptabilisé dans la file d'attente d'une zone.
-        on_connection: Connexion actuellement empruntée par le drone,
-            le cas échéant.
+        drone_id: The drone's unique identifier.
+        current_zone: The zone where the drone is currently located.
+        next_zone: The next zone the drone is heading for along its path.
+        path: An ordered list of the zones the drone must traverse,
+            from the starting zone to the destination zone.
+        path_index: Index of the drone’s current zone in `path`.
+        state: Current state of the drone (moving, in transit,
+            arrived...).
+        remain: Counter used to determine whether the drone has already
+            been counted in a zone’s queue.
+        on_connection: Connection currently used by the drone,
+            if applicable.
     """
 
     drone_id: int = Field(ge=0, le=25)
@@ -258,12 +245,12 @@ class Drone(BaseModel):
     on_connection: Optional[Connection] = Field(default=None)
 
     def has_arrived(self) -> bool:
-        """Indique si le drone a atteint la fin de son chemin.
+        """Indicates whether the drone has reached the end of its path.
 
-        Met également à jour `state` à `ARRIVED` si c'est le cas.
+        Also updates `state` to `ARRIVED` if this is the case.
 
         Returns:
-            True si le drone est arrivé au bout de `path`, False sinon.
+            True if the drone has reached the end of `path`, False otherwise.
         """
         if self.path_index is None:
             return False
@@ -274,13 +261,13 @@ class Drone(BaseModel):
         else:
             return False
 
-    def update_zone(self):
-        """Met à jour `current_zone` et `next_zone` d'après `path_index`.
+    def update_zone(self) -> self:
+        """Updates `current_zone` and `next_zone` based on `path_index`.
 
-        Ne fait rien si le drone est déjà arrivé au bout de son chemin.
+        Does nothing if the drone has already reached the end of its path.
 
         Returns:
-            Le drone lui-même (pour permettre le chaînage d'appels).
+            The drone itself (to allow for call chaining).
         """
         if self.has_arrived() is False:
             self.current_zone = self.path[self.path_index]
@@ -315,14 +302,14 @@ class Drone(BaseModel):
         return final_conn
 
     def check_conn(self, graph: "Graph") -> bool:
-        """Cherche puis mémorise la connexion vers la prochaine zone.
+        """Searches for and stores the connection to the next zone.
 
         Args:
-            graph: Le graphe contenant les zones et connexions.
+            graph: The graph containing the zones and connections.
 
         Returns:
-            True si une connexion a été trouvée et assignée à
-            `on_connection`, False sinon.
+            True if a connection was found and assigned to
+            `on_connection`, False otherwise.
         """
         final_conn = self.update_conn(graph)
         if final_conn is None:
@@ -333,17 +320,17 @@ class Drone(BaseModel):
 
 
 class Graph(BaseModel):
-    """Le graphe complet de la carte : zones, connexions et métadonnées.
+    """The complete graph of the map: zones, connections, and metadata.
 
     Attributes:
-        zones: Dictionnaire associant le nom de chaque zone à l'objet
-            `Zone` correspondant.
-        connections: Liste de toutes les connexions entre zones.
-        nb_drones: Nombre de drones à faire voler sur cette carte.
-        start: Zone de départ de la simulation, si elle a été trouvée
-            lors du parsing.
-        end: Zone d'arrivée de la simulation, si elle a été trouvée
-            lors du parsing.
+        zones: A dictionary that associates the name of each zone with the corresponding
+            `Zone` object.
+        connections: A list of all connections between zones.
+        nb_drones: Number of drones to fly on this map.
+        start: Starting zone of the simulation, if it was found
+            during parsing.
+        end: Ending zone of the simulation, if it was found
+            during parsing.
     """
 
     zones: dict[str, Zone] = Field(default_factory=dict)
@@ -353,7 +340,7 @@ class Graph(BaseModel):
     end: Optional[Zone] = Field(default=None)
 
     def get_neighbors(self, zone: Zone) -> list[tuple[Zone, Connection]]:
-        """Retourne les zones voisines accessibles avec leur connexion."""
+        """Returns the accessible neighboring zones along with their connections."""
         result = []
         for conn in self.connections:
             if conn.zone_a == zone:
