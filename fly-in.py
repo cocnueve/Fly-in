@@ -1,9 +1,9 @@
-"""Point d'entrée du simulateur Fly-in.
+"""Fly-in Simulator Entry Point.
 
-Ce script charge une carte, calcule un premier chemin optimal du
-départ vers l'arrivée avec l'algorithme de Dijkstra (`Pathfinder`),
-crée les drones puis fait tourner la boucle de simulation tour par
-tour en affichant le résultat via `Visualizer`.
+This script loads a map, calculates an initial optimal path from
+the start to the finish using Dijkstra's algorithm (`Pathfinder`),
+creates the drones, and then runs the simulation loop turn by
+turn, displaying the results via `Visualizer`.
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ import time
 
 @dataclass(order=True)
 class PathNode:
-    """Nœud de la file de priorité utilisée par l'algorithme de Dijkstra.
+    """A node in the priority queue used by Dijkstra's algorithm.
 
     Attributes:
-        cost: Coût cumulé du chemin menant à cette zone (utilisé
-            pour l'ordre dans le tas).
-        zone: Zone représentée par ce nœud.
-        path: Chemin complet (liste de zones) menant du départ à
-            cette zone.
+        cost: Cumulative cost of the path leading to this area (used
+            to determine the order in the heap).
+        area: Area represented by this node.
+        path: Complete path (list of areas) leading from the start to
+            this area.
     """
 
     cost: int
@@ -35,7 +35,7 @@ class PathNode:
 
 
 class Pathfinder:
-    """Trouve le chemin optimal dans un graphe de zones."""
+    """Find the optimal path in a zone graph."""
 
     def find_shortest_path(
         self,
@@ -43,20 +43,20 @@ class Pathfinder:
         start: Zone,
         end: Zone
     ) -> Optional[list[Zone]]:
-        """Retourne le chemin de coût minimal, ou None si impossible.
+        """Returns the minimum-cost path, or None if this is not possible.
 
-        Implémente l'algorithme de Dijkstra à l'aide d'un tas
-        (`heapq`) : à chaque étape, on explore la zone non visitée
-        de coût cumulé minimal, jusqu'à atteindre `end`.
+        Implements Dijkstra's algorithm using a heap
+        (`heapq`): at each step, the unvisited region
+        with the minimum cumulative cost is explored until `end` is reached.
 
         Args:
-            graph: Le graphe dans lequel chercher un chemin.
-            start: La zone de départ.
-            end: La zone d'arrivée visée.
+            graph: The graph in which to search for a path.
+            start: The starting region.
+            end: The target region.
 
         Returns:
-            La liste ordonnée des zones à traverser (départ inclus,
-            arrivée incluse), ou None si aucun chemin n'existe.
+            The ordered list of zones to pass through (including the start and
+            the end), or None if no path exists.
         """
         heap = [PathNode(0, start, [start])]
         visited: set[str] = set()
@@ -81,7 +81,7 @@ class Pathfinder:
         return None  # pas de chemin
 
     def _get_movement_cost(self, zone: Zone) -> int:
-        """Retourne le coût en tours pour entrer dans une zone."""
+        """Returns the cost in turns to enter an area."""
         if zone.zone_type == ZoneType.RESTRICTED:
             return 3
         elif zone.zone_type == ZoneType.BLOCKED:
@@ -93,35 +93,35 @@ class Pathfinder:
 
 
 class DroneFactory():
-    """Fabrique de drones, positionnés sur une zone de départ."""
+    """Drone factory, with drones positioned in a launch area."""
 
     def __init__(self):
         pass
 
     def create_drone(self, id: int, start_zone: Zone, path: list[Zone]):
-        """Crée un nouveau drone placé sur `start_zone` avec son chemin.
+        """Creates a new drone placed in `start_zone` with its path.
 
         Args:
-            id: Identifiant à donner au drone.
-            start_zone: Zone de départ du drone.
-            path: Chemin complet que le drone doit suivre.
+            id: The ID to assign to the drone.
+            start_zone: The drone's starting zone.
+            path: The complete path the drone must follow.
 
         Returns:
-            Le `Drone` nouvellement créé.
+            The newly created `Drone`.
         """
         return Drone(drone_id=id, current_zone=start_zone, path=path)
 
 
 def move_drone(drone: Drone, graph: Graph) -> bool:
-    """Fait avancer un drone d'une zone vers la suivante si possible.
+    """Moves a drone from one zone to the next, if possible.
 
     Args:
-        drone: Le drone à déplacer.
-        graph: Le graphe contenant les zones et connexions.
+        drone: The drone to move.
+        graph: The graph containing the zones and connections.
 
     Returns:
-        True si le drone a effectivement avancé d'une zone, False sinon
-        (connexion pleine, zone suivante pleine, drone déjà en transit...).
+        True if the drone has successfully moved to the next zone, False otherwise
+        (connection full, next zone full, drone already in transit, etc.).
     """
     # path_index est théoriquement toujours un int une fois le drone créé
     # (valeur par défaut 0). On le rend explicite pour mypy et pour la
@@ -173,14 +173,14 @@ def move_drone(drone: Drone, graph: Graph) -> bool:
 
 
 def change_path(drone: Drone) -> bool:
-    """Recalcule le plus court chemin du drone vers l'arrivée du graphe.
+    """Recalculates the shortest path from the drone to the graph's destination.
 
     Args:
-        drone: Le drone dont on veut recalculer le trajet.
+        drone: The drone for which you want to recalculate the path.
 
     Returns:
-        True si un nouveau chemin a été trouvé (et assigné au drone),
-        False si aucun chemin n'existe ou si le graphe/drone est mal formé.
+        True if a new path has been found (and assigned to the drone),
+        False if no path exists or if the graph or drone is malformed.
     """
     assert drone.path_index is not None
     if graph.end is None:
@@ -201,7 +201,7 @@ if __name__ == "__main__":
         parser = Parser()
         pathfinder = Pathfinder()
         graph = parser.parse_file(
-            "/home/ffeder/Desktop/3e cercle/Fly-in/config.txt"
+            "/mnt/f/coc9/Documents/code/Fly-in/config.txt"
         )
 
         # start/end sont Optional côté modèle (tant qu'aucune zone "start" /

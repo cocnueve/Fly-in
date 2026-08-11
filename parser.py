@@ -17,30 +17,30 @@ import sys
 
 
 class Parser:
-    """Parse un fichier de carte de drones."""
+    """Parse a drone map file."""
 
     def parse_file(self, filepath: str) -> Graph:
-        """Charge et parse un fichier de carte.
+        """Loads and parses a map file.
 
-        Lit le fichier ligne par ligne, ignore les lignes vides et les
-        commentaires (`#`), puis délègue le parsing de chaque ligne
-        utile à `parse_line`. Construit ensuite les zones et les
-        connexions correspondantes et les assemble dans un `Graph`.
+        Reads the file line by line, skips empty lines and
+        comments (`#`), then delegates the parsing of each
+        valid line to `parse_line`. It then constructs the zones and
+        corresponding connections and assembles them into a `Graph`.
 
-        Les erreurs de validation pydantic (valeurs hors bornes,
-        champs manquants...) et les erreurs de connexion (zones
-        inconnues) sont affichées sur la sortie standard plutôt que
-        de faire planter tout le parsing : la ligne fautive est
-        simplement ignorée et le parsing continue.
+        Pydantic validation errors (out-of-range values,
+        missing fields, etc.) and connection errors (unknown
+        fields) are displayed on standard output rather than
+        causing the entire parsing process to fail: the problematic line is
+        simply ignored, and parsing continues.
 
         Args:
-            filepath: Chemin vers le fichier de carte à parser.
+            filepath: Path to the map file to be parsed.
 
         Returns:
-            Le graphe (`Graph`) construit à partir du fichier.
+            The graph (`Graph`) constructed from the file.
 
         Raises:
-            ValueError: Si le fichier n'existe pas.
+            ValueError: If the file does not exist.
         """
         graph = Graph()
         parse_dict = {}
@@ -144,23 +144,23 @@ class Parser:
         return graph
 
     def parse_line(self, line: str) -> dict[str, Any]:
-        """Parse une seule ligne du fichier de carte.
+        """Parses a single line from the map file.
 
-        Reconnaît trois formats de ligne : `nb_drones: N`, une zone
-        (`start_hub:`, `end_hub:` ou `hub:`), ou une connexion
-        (`connection:`). Les attributs entre crochets (ex:
-        `[color=red max_drones=2]`) sont extraits sous forme de
-        dictionnaire.
+        Recognizes three line formats: `nb_drones: N`, a zone
+        (`start_hub:`, `end_hub:`, or `hub:`), or a connection
+        (`connection:`). Attributes enclosed in square brackets (e.g.,
+        `[color=red max_drones=2]`) are extracted as a
+        dictionary.
 
         Args:
-            line: La ligne de texte à parser (déjà nettoyée des
-                espaces superflus).
+            line: The line of text to parse (already stripped of
+                unnecessary spaces).
 
         Returns:
-            Un dictionnaire décrivant l'élément trouvé sur la ligne
-            (clé `nb_drones`, ou `zone_name`/`x`/`y`/..., ou
-            `loc_a`/`loc_b`/...), ou un dictionnaire vide si la ligne
-            ne correspond à aucun format reconnu.
+            A dictionary describing the element found on the line
+            (key `nb_drones`, or `zone_name`/`x`/`y`/..., or
+            `loc_a`/`loc_b`/...), or an empty dictionary if the line
+            does not match any recognized format.
         """
         if line.startswith("nb_drones"):
             key, value = line.split(":")

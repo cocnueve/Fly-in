@@ -1,9 +1,8 @@
-"""Visualisation Tkinter en temps réel de la simulation Fly-in.
+"""Real-time Tkinter visualisation of the Fly-in simulation.
 
-Ce module dessine la carte (zones et connexions) sur un canvas Tkinter
-et rafraîchit à chaque tour la position des drones, leur état
-(couleur) et les informations d'occupation/file d'attente de chaque
-zone.
+This module draws the map (zones and connections) on a Tkinter canvas 
+and refreshes the position of the drones, their state (colour) and 
+the occupancy/queue information of each zone at each turn.
 """
 
 import tkinter as tk
@@ -45,23 +44,23 @@ BACKGROUND = "#fafafa"
 
 class Visualizer:
     """
-    Visualiseur temps réel de la simulation Fly-in.
+    Real-time viewer for the Fly-in simulation.
 
-    Fonctionnalités :
-    - adaptation automatique à la taille de la carte
-    - zoom automatique
-    - hubs lisibles
-    - drones autour des zones
-    - affichage des files d'attente
+    Features:
+    - automatic adjustment to map size
+    - automatic zoom
+    - visible hubs
+    - drones around zones
+    - queue display
     """
 
     def __init__(self, graph, width=1920, height=1080):
-        """Construit la fenêtre et dessine la carte statique initiale.
+        """Creates the window and draws the initial static map.
 
         Args:
-            graph: Le graphe (`Graph`) à afficher.
-            width: Largeur de la fenêtre/canvas, en pixels.
-            height: Hauteur de la fenêtre/canvas, en pixels.
+            graph: The graph (`Graph`) to display.
+            width: Width of the window/canvas, in pixels.
+            height: Height of the window/canvas, in pixels.
         """
 
         self.graph = graph
@@ -107,11 +106,11 @@ class Visualizer:
         self._draw_legend()
 
     def _calculate_scale(self):
-        """Calcule le facteur de zoom et le décalage pour centrer la carte.
+        """Calculates the zoom factor and the offset to center the map.
 
-        Détermine `self.scale`, `self.offset_x` et `self.offset_y` de
-        façon à ce que toutes les zones du graphe tiennent dans le
-        canvas, avec une marge, quelle que soit l'étendue de la carte.
+        Determines `self.scale`, `self.offset_x`, and `self.offset_y`
+        so that all areas of the graph fit within the
+        canvas, with a margin, regardless of the map's extent.
         """
 
         zones = list(self.graph.zones.values())
@@ -144,7 +143,7 @@ class Visualizer:
         self.offset_y = self.height / 2 - center_y * self.scale
 
     def _compute_positions(self):
-        """Convertit les coordonnées (x, y) de chaque zone en pixels."""
+        """Converts the (x, y) coordinates of each area to pixels."""
 
         for name, zone in self.graph.zones.items():
             x = zone.x * self.scale + self.offset_x
@@ -152,7 +151,7 @@ class Visualizer:
             self.zone_pos[name] = (x, y)
 
     def _draw_connections(self):
-        """Dessine toutes les connexions (lignes) entre zones."""
+        """Draw all the connections (lines) between zones."""
 
         for conn in self.graph.connections:
             x1, y1 = self.zone_pos[
@@ -184,7 +183,7 @@ class Visualizer:
                 )
 
     def _draw_zones(self):
-        """Dessine chaque zone (cercle coloré + texte d'info dessous)."""
+        """Draw each area (colored circle + info text below it)."""
 
         for name, zone in self.graph.zones.items():
             x, y = self.zone_pos[name]
@@ -213,14 +212,14 @@ class Visualizer:
 
     @staticmethod
     def _zone_info(zone):
-        """Retourne le texte affiché sous une zone (occupation, file)."""
+        """Returns the text displayed below a field (occupation, queue)."""
         return (
             f"Drones : {len(zone.current_drones)}/{zone.max_drones}\n"
             f"Waiting : {zone.waiting}"
         )
 
     def _refresh_zones(self):
-        """Met à jour le texte d'info affiché sous chaque zone."""
+        """Updates the tooltip text displayed below each field."""
         for name, zone in self.graph.zones.items():
             if name in self.zone_text:
                 self.canvas.itemconfig(
@@ -229,13 +228,13 @@ class Visualizer:
                 )
 
     def _clear_drones(self):
-        """Supprime du canvas tous les dessins de drones du tour précédent."""
+        """Removes all drone drawings from the previous turn from the canvas."""
         for item in self.drone_items:
             self.canvas.delete(item)
         self.drone_items = []
 
     def _drone_color(self, drone):
-        """Retourne la couleur d'affichage associée à l'état du drone."""
+        """Returns the display color associated with the drone's status."""
         state = str(
             getattr(
                 drone,
@@ -250,10 +249,10 @@ class Visualizer:
         return DRONE_COLORS["DEFAULT"]
 
     def _draw_drones(self, drone_list):
-        """Dessine tous les drones, répartis en cercle autour de leur zone.
+        """Draw all the drones, arranged in a circle around their area.
 
         Args:
-            drone_list: Liste de tous les drones de la simulation.
+            drone_list: List of all drones in the simulation.
         """
         self._clear_drones()
         grouped = {}
@@ -321,7 +320,7 @@ class Visualizer:
                 )
 
     def _draw_legend(self):
-        """Dessine la légende des couleurs en haut à droite de la fenêtre."""
+        """Draw the color key in the upper-right corner of the window."""
         x = self.width - 150
         y = 80
         self.canvas.create_text(
@@ -355,13 +354,13 @@ class Visualizer:
             )
 
     def update(self, drone_list, tour):
-        """Rafraîchit l'affichage pour le tour courant de la simulation.
+        """Refreshes the display for the current lap of the simulation.
 
-        Ne fait rien si la fenêtre a déjà été fermée par l'utilisateur.
+        Does nothing if the window has already been closed by the user.
 
         Args:
-            drone_list: Liste de tous les drones de la simulation.
-            tour: Numéro du tour courant, affiché dans le titre.
+            drone_list: List of all drones in the simulation.
+            lap: Number of the current lap, displayed in the title.
         """
         if self.closed:
             return
@@ -376,12 +375,12 @@ class Visualizer:
         self.root.update()
 
     def _on_close(self):
-        """Callback appelé à la fermeture de la fenêtre par l'utilisateur."""
+        """A callback function called when the user closes the window."""
         self.closed = True
         self.root.destroy()
 
     def wait_until_closed(self):
-        """Bloque le programme jusqu'à la fermeture de la fenêtre."""
+        """Pauses the program until the window is closed."""
 
         if not self.closed:
             self.root.mainloop()
