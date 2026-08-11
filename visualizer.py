@@ -1,16 +1,10 @@
-"""Real-time Tkinter visualisation of the Fly-in simulation.
-
-This module draws the map (zones and connections) on a Tkinter canvas 
-and refreshes the position of the drones, their state (colour) and 
-the occupancy/queue information of each zone at each turn.
-"""
-
 import tkinter as tk
 import math
+from system import Graph, Zone, Drone
 
 
 # =========================
-# CONFIGURATION VISUELLE
+# VISUAL CONFIGURATION
 # =========================
 
 ZONE_COLORS = {
@@ -44,24 +38,17 @@ BACKGROUND = "#fafafa"
 
 class Visualizer:
     """
-    Real-time viewer for the Fly-in simulation.
+    Real-time visualizer for the Fly-in simulation.
 
     Features:
-    - automatic adjustment to map size
+    - automatic adaptation to the map size
     - automatic zoom
-    - visible hubs
-    - drones around zones
-    - queue display
+    - readable hubs
+    - drones drawn around zones
+    - waiting-queue display
     """
 
-    def __init__(self, graph, width=1920, height=1080):
-        """Creates the window and draws the initial static map.
-
-        Args:
-            graph: The graph (`Graph`) to display.
-            width: Width of the window/canvas, in pixels.
-            height: Height of the window/canvas, in pixels.
-        """
+    def __init__(self, graph: "Graph", width: int = 1920, height: int = 1080) -> None:
 
         self.graph = graph
         self.closed = False
@@ -94,24 +81,20 @@ class Visualizer:
         )
 
         self.canvas.pack()
-        self.zone_pos = {}
-        self.zone_items = {}
-        self.zone_text = {}
-        self.drone_items = []
-        self.scale = 1
+        self.zone_pos: dict[str, tuple[float, float]] = {}
+        self.zone_items: dict[str, int] = {}
+        self.zone_text: dict[str, int] = {}
+        self.drone_items: list[int] = []
+        self.scale: float = 1
+        self.offset_x: float = 0
+        self.offset_y: float = 0
         self._calculate_scale()
         self._compute_positions()
         self._draw_connections()
         self._draw_zones()
         self._draw_legend()
 
-    def _calculate_scale(self):
-        """Calculates the zoom factor and the offset to center the map.
-
-        Determines `self.scale`, `self.offset_x`, and `self.offset_y`
-        so that all areas of the graph fit within the
-        canvas, with a margin, regardless of the map's extent.
-        """
+    def _calculate_scale(self) -> None:
 
         zones = list(self.graph.zones.values())
 
@@ -134,24 +117,22 @@ class Visualizer:
         sy = (self.height - 2 * margin) / height
 
         self.scale = min(sx, sy)
-        # centre du monde
+        # center of the world
         center_x = (min_x + max_x) / 2
         center_y = (min_y + max_y) / 2
 
-        # translation vers le centre de la fenêtre
+        # translate toward the center of the window
         self.offset_x = self.width / 2 - center_x * self.scale
         self.offset_y = self.height / 2 - center_y * self.scale
 
-    def _compute_positions(self):
-        """Converts the (x, y) coordinates of each area to pixels."""
+    def _compute_positions(self) -> None:
 
         for name, zone in self.graph.zones.items():
             x = zone.x * self.scale + self.offset_x
             y = zone.y * self.scale + self.offset_y
             self.zone_pos[name] = (x, y)
 
-    def _draw_connections(self):
-        """Draw all the connections (lines) between zones."""
+    def _draw_connections(self) -> None:
 
         for conn in self.graph.connections:
             x1, y1 = self.zone_pos[
@@ -169,7 +150,7 @@ class Visualizer:
                 width=3
             )
 
-            # capacité du lien
+            # link capacity
             if hasattr(conn, "max_link"):
                 mx = (x1 + x2) / 2
                 my = (y1 + y2) / 2
@@ -182,8 +163,7 @@ class Visualizer:
                     fill="#555555"
                 )
 
-    def _draw_zones(self):
-        """Draw each area (colored circle + info text below it)."""
+    def _draw_zones(self) -> None:
 
         for name, zone in self.graph.zones.items():
             x, y = self.zone_pos[name]
@@ -211,15 +191,13 @@ class Visualizer:
             self.zone_text[name] = info
 
     @staticmethod
-    def _zone_info(zone):
-        """Returns the text displayed below a field (occupation, queue)."""
+    def _zone_info(zone: "Zone") -> str:
         return (
             f"Drones : {len(zone.current_drones)}/{zone.max_drones}\n"
             f"Waiting : {zone.waiting}"
         )
 
-    def _refresh_zones(self):
-        """Updates the tooltip text displayed below each field."""
+    def _refresh_zones(self) -> None:
         for name, zone in self.graph.zones.items():
             if name in self.zone_text:
                 self.canvas.itemconfig(
@@ -227,14 +205,12 @@ class Visualizer:
                     text=self._zone_info(zone)
                 )
 
-    def _clear_drones(self):
-        """Removes all drone drawings from the previous turn from the canvas."""
+    def _clear_drones(self) -> None:
         for item in self.drone_items:
             self.canvas.delete(item)
         self.drone_items = []
 
-    def _drone_color(self, drone):
-        """Returns the display color associated with the drone's status."""
+    def _drone_color(self, drone: "Drone") -> str:
         state = str(
             getattr(
                 drone,
@@ -248,14 +224,9 @@ class Visualizer:
                 return DRONE_COLORS[key]
         return DRONE_COLORS["DEFAULT"]
 
-    def _draw_drones(self, drone_list):
-        """Draw all the drones, arranged in a circle around their area.
-
-        Args:
-            drone_list: List of all drones in the simulation.
-        """
+    def _draw_drones(self, drone_list: list["Drone"]) -> None:
         self._clear_drones()
-        grouped = {}
+        grouped: dict[str, list["Drone"]] = {}
         for drone in drone_list:
             if drone.path is None:
                 continue
@@ -274,7 +245,7 @@ class Visualizer:
                 zone_name
             ]
             count = len(drones)
-            # drones autour du hub
+            # drones around the hub
             radius = ZONE_RADIUS + 35 + len(drones)
             for i, drone in enumerate(drones):
                 angle = (
@@ -319,8 +290,7 @@ class Visualizer:
                     ]
                 )
 
-    def _draw_legend(self):
-        """Draw the color key in the upper-right corner of the window."""
+    def _draw_legend(self) -> None:
         x = self.width - 150
         y = 80
         self.canvas.create_text(
@@ -353,15 +323,7 @@ class Visualizer:
                 font=("Consolas", 9)
             )
 
-    def update(self, drone_list, tour):
-        """Refreshes the display for the current lap of the simulation.
-
-        Does nothing if the window has already been closed by the user.
-
-        Args:
-            drone_list: List of all drones in the simulation.
-            lap: Number of the current lap, displayed in the title.
-        """
+    def update(self, drone_list: list["Drone"], tour: int) -> None:
         if self.closed:
             return
 
@@ -374,13 +336,11 @@ class Visualizer:
         )
         self.root.update()
 
-    def _on_close(self):
-        """A callback function called when the user closes the window."""
+    def _on_close(self) -> None:
         self.closed = True
         self.root.destroy()
 
-    def wait_until_closed(self):
-        """Pauses the program until the window is closed."""
+    def wait_until_closed(self) -> None:
 
         if not self.closed:
             self.root.mainloop()

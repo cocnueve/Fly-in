@@ -1,139 +1,133 @@
-# Fly-in — Simulateur de trafic de drones
+*This project has been created as part of the 42 curriculum by ffeder42.*
 
-Fly-in simule le déplacement d'un essaim de drones sur une carte de zones
-(hubs) reliées entre elles, en respectant des contraintes de capacité (par
-zone et par connexion) et des coûts de déplacement qui dépendent du type de
-zone traversée. La simulation s'affiche en temps réel dans une fenêtre
-Tkinter.
+# Fly-in
 
-## Sommaire
+## Description
 
-- [Fonctionnement général](#fonctionnement-général)
-- [Structure du projet](#structure-du-projet)
-- [Installation](#installation)
-- [Utilisation](#utilisation)
-- [Format des fichiers de carte](#format-des-fichiers-de-carte)
-- [Qualité du code](#qualité-du-code)
+Fly-in simulates a fleet of drones flying from a `start` zone to an `end`
+zone through a network of interconnected zones, under movement and
+capacity constraints:
 
-## Fonctionnement général
+- some zones cost more turns to enter (`restricted`), some are preferred
+  (`priority`), some are completely inaccessible (`blocked`);
+- zones and connections have a maximum simultaneous capacity;
+- drones move simultaneously, turn by turn, and must wait or re-route
+  when a path is congested.
 
-1. `Parser` lit un fichier de carte texte et construit un `Graph` (zones +
-   connexions).
-2. `Pathfinder` calcule, avec l'algorithme de Dijkstra, le chemin le moins
-   coûteux entre la zone `start` et la zone `goal`.
-3. `DroneFactory` crée un drone par unité déclarée dans `nb_drones`, tous
-   placés initialement sur la zone `start` et suivant le même chemin.
-4. La boucle principale de `fly-in.py` fait avancer les drones tour par
-   tour : un drone tente d'entrer dans la zone suivante de son chemin ; si
-   la zone ou la connexion est pleine, il rejoint une file d'attente. Si
-   cette file dépasse une certaine taille, le drone recalcule un nouveau
-   chemin.
-5. `Visualizer` affiche à chaque tour l'état de la carte : zones, capacité
-   occupée, files d'attente et position des drones.
+The project is split into four object-oriented modules:
 
-### Types de zone et coûts de déplacement
+- `system.py` — the domain model: `Zone`, `Connection`, `Drone`, `Graph`.
+- `parser.py` — turns a `.txt` map file into a `Graph`, validating the
+  file format strictly (unique start/end zone, no duplicate zones or
+  connections, valid zone types, capacity metadata ignored on
+  start_hub/end_hub as required by the subject).
+- `fly-in.py` — the pathfinder (`Pathfinder`, Dijkstra-based), the drone
+  factory (`DroneFactory`), and the turn-by-turn simulation engine
+  (`Simulation`).
+- `visualizer.py` — a real-time Tkinter view of the simulation.
 
-| Type de zone | Coût pour l'entrer | Remarque |
-|---|---|---|
-| `normal`     | 2 tours | comportement par défaut |
-| `priority`   | 1 tour  | favorisée par le pathfinder |
-| `restricted` | 3 tours | ralentit le chemin |
-| `blocked`    | 4 tours | inaccessible (`is_accessible()` renvoie 0) |
-
-## Structure du projet
-
-```
-.
-├── fly-in.py       # point d'entrée : pathfinding + boucle de simulation
-├── system.py       # modèles de données (Zone, Connection, Drone, Graph)
-├── parser.py       # parseur des fichiers de carte texte
-├── visualizer.py   # affichage Tkinter de la simulation
-└── maps/           # exemples de cartes (easy / medium / hard / challenger)
-```
-
-## Installation
-
-Le projet nécessite Python 3.10+ (utilisation de la syntaxe `X | None`) et
-la bibliothèque [pydantic](https://docs.pydantic.dev/) pour la validation
-des modèles de données. Tkinter fait partie de la bibliothèque standard
-mais doit parfois être installé séparément selon votre distribution
-(`sudo apt install python3-tk` sur Debian/Ubuntu).
+## Instructions
 
 ```bash
-pip install pydantic
+python fly-in.py <path_to_map_file>
 ```
 
-## Utilisation
+The program reads the map file, computes an initial path with Dijkstra,
+spawns `nb_drones` drones at the start zone, then runs the turn-by-turn
+simulation until every drone reaches the end zone. Each turn, the
+program prints a line listing every drone move for that turn, and a
+Tkinter window shows the network and the drones live.
 
-Le chemin du fichier de carte est actuellement codé en dur dans le bloc
-`if __name__ == "__main__":` de `fly-in.py`. Modifiez la ligne suivante pour
-pointer vers la carte que vous souhaitez simuler :
+Dependency: `pydantic` (`pip install pydantic`).
 
-```python
-graph = parser.parse_file("/chemin/vers/votre/carte.txt")
+## Algorithm choices & implementation strategy
+
+- **Pathfinding**: Dijkstra's algorithm (`Pathfinder.find_shortest_path`),
+  implemented from scratch with a binary heap (`heapq`) — no graph
+  library is used. The edge cost is the movement cost of the destination
+  zone; blocked zones are excluded from the search since
+  `Zone.is_accessible()` returns 0 for them.
+- **Restricted-zone transit**: entering a `restricted` zone takes 2
+  turns. This is modeled with a dedicated `DroneState.IN_TRANSIT` state:
+  on the first turn the drone leaves its zone and starts crossing the
+  connection (its `path_index` is not advanced yet); on the second turn
+  it completes the entry and `path_index` advances.
+- **Restricted-zone capacity**: a restricted zone's capacity must not be
+  exceeded even 2 turns ahead of time. Before a drone is allowed to
+  start a transit, `Simulation.move_drone` counts not only the drones
+  already inside the target zone, but also every drone currently in
+  flight toward that same zone (`state == IN_TRANSIT` and
+  `path[path_index + 1] == next_zone`), and refuses the move if the
+  total would exceed `max_drones`. This keeps two drones from
+  simultaneously committing to the same single-capacity restricted zone.
+- **Congestion handling**: a drone that fails to move increments the
+  `waiting` counter of its target zone. If more than 2 drones are queued
+  for the same zone, the queued drones recompute a fresh shortest path
+  from their current position (`Simulation.change_path`), re-routing
+  around the bottleneck.
+- **Complexity**: each Dijkstra run is `O((V + E) log V)`. It is only
+  re-run for a drone when its queue actually gets congested, not every
+  turn, which keeps the simulation practical even with many drones.
+
+## Visual representation
+
+`visualizer.py` opens a Tkinter window that redraws, every turn:
+
+- every zone as a colored circle (color = the `color` metadata from the
+  map file) with a live label showing `drones/max_drones` and the
+  current waiting-queue size;
+- every connection as a line labeled with its `max_link_capacity`;
+- every drone as a small numbered circle positioned around the zone it
+  currently occupies, colored by its state (`moving`, `waiting`,
+  `arrived`).
+
+This makes bottlenecks (a zone stuck at capacity, a growing queue)
+immediately visible without reading the raw text output. Independently
+of the graphical window, the simulation always prints the turn-by-turn
+textual log required by the subject (see the example below).
+
+## Example input and output
+
+Input (`maps/medium/02_circular_loop.txt`, excerpt — `exit_point` is a
+`restricted` zone with a default capacity of 1 drone):
+
 ```
+nb_drones: 6
 
-Puis lancez la simulation :
-
-```bash
-python fly-in.py
-```
-
-Une fenêtre s'ouvre et affiche la carte ainsi que le déplacement des
-drones, tour par tour, jusqu'à ce qu'ils soient tous arrivés (ou que la
-simulation atteigne la limite de sécurité de 50 tours).
-
-## Format des fichiers de carte
-
-Un fichier de carte est un fichier texte, lu ligne par ligne. Les lignes
-vides et celles commençant par `#` sont ignorées.
-
-```txt
-# Nombre total de drones à simuler
-nb_drones: 4
-
-# Zone de départ (obligatoire, nom "start")
 start_hub: start 0 0 [color=green]
+hub: loop_a 1 0 [color=orange max_drones=2]
+hub: loop_b 2 0 [color=orange max_drones=2]
+hub: exit_point 3 0 [zone=restricted color=blue]
+end_hub: goal 4 0 [color=red]
 
-# Zones intermédiaires
-hub: junction 1 0 [color=yellow max_drones=2]
-hub: path_a 2 1 [color=blue]
-
-# Zone d'arrivée (obligatoire, nom "goal")
-end_hub: goal 3 0 [color=red]
-
-# Connexions entre zones : "zoneA-zoneB [options]"
-connection: start-junction [max_link_capacity=2]
-connection: junction-path_a
-connection: path_a-goal
+connection: start-loop_a [max_link_capacity=2]
+connection: loop_a-loop_b [max_link_capacity=2]
+connection: loop_b-exit_point
+connection: exit_point-goal
 ```
 
-Attributs disponibles entre crochets `[...]` :
+Output (excerpt):
 
-- Sur une zone (`hub:`, `start_hub:`, `end_hub:`) :
-  `zone=restricted|blocked|priority|normal`, `color=...`, `max_drones=N`.
-- Sur une connexion (`connection:`) :
-  `max_link_capacity=N`, `current_usage=N`.
+```
+D1-loop_a D2-loop_a
+D1-loop_b D2-loop_b D3-loop_a D4-loop_a
+D1-loop_b-exit_point
+D1-exit_point D3-loop_b D5-loop_a
+D1-goal D2-loop_b-exit_point
+...
+```
 
-Des exemples complets sont disponibles dans `maps/` (niveaux `easy`,
-`medium`, `hard` et `challenger`).
+`D1-loop_b-exit_point` shows drone 1 starting its 2-turn transit into
+the restricted zone; `D1-exit_point` shows it arriving two turns later.
+Drone 2 only starts its own transit once drone 1 has vacated the zone,
+since `exit_point`'s capacity is 1.
 
-## Qualité du code
+## Resources
 
-Le code respecte :
-
-- **flake8** (PEP8) : `flake8 system.py parser.py fly-in.py visualizer.py`
-  ne remonte aucune erreur.
-- **mypy** : `mypy --ignore-missing-imports system.py parser.py
-  visualizer.py fly-in.py` ne remonte aucune erreur. Les valeurs
-  potentiellement `None` (issues des champs `Optional` de pydantic) sont
-  vérifiées explicitement avant utilisation plutôt qu'ignorées, afin que
-  le code documente aussi les hypothèses qu'il fait sur les données.
-
-### Limites connues
-
-- La boucle de simulation s'arrête automatiquement après 50 tours par
-  sécurité ; certaines cartes complexes (voir `maps/challenger/`) peuvent
-  ne pas être résolues dans cette limite.
-- Le chemin du fichier de carte est codé en dur dans `fly-in.py` : il n'y a
-  pas encore d'argument en ligne de commande pour le choisir.
+- [Pydantic documentation](https://docs.pydantic.dev/) — data validation
+  used for the whole domain model.
+- [Dijkstra's algorithm — Wikipedia](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm)
+- [Python `heapq` documentation](https://docs.python.org/3/library/heapq.html)
+- [Tkinter documentation](https://docs.python.org/3/library/tkinter.html)
+- [mypy documentation](https://mypy.readthedocs.io/)
+- [flake8 documentation](https://flake8.pycqa.org/)
