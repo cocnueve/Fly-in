@@ -31,7 +31,7 @@ class Zone(BaseModel):
     y: int = Field(ge=-30, le=30)
     zone_type: ZoneType = Field(default=ZoneType.NORMAL)
     color: Optional[str] = Field(default=None)
-    max_drones: int = Field(default=1, ge=0, le=25)
+    max_drones: int = Field(default=1, ge=1, le=25)
     current_drones: List["Drone"] = Field(default_factory=list)
     waiting: int = Field(default=0, ge=0, le=1000)
     temp_zone: Optional["ZoneType"] = Field(default=None)
@@ -183,7 +183,7 @@ class Connection(BaseModel):
 
     zone_a: Zone
     zone_b: Zone
-    max_link: int = Field(default=1, ge=0, le=5)
+    max_link: int = Field(default=1, ge=1, le=5)
     current_usage: int = Field(default=0, ge=0, le=5)
 
     @model_validator(mode="after")
