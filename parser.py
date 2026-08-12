@@ -1,3 +1,4 @@
+"""Parses a drone map file (VI/VII.4) into a system.Graph."""
 from __future__ import annotations
 from typing import Any
 from pydantic import ValidationError
@@ -137,6 +138,25 @@ class Parser:
         return graph
 
     def parse_line(self, line: str) -> dict[str, Any]:
+        """Parse one non-empty, non-comment line into a raw field dict.
+
+        Dispatches on the line's prefix (nb_drones / start_hub, end_hub,
+        hub / connection). The returned dict is intentionally "raw"
+        (string values, no validation) — parse_file() is what turns it
+        into validated Zone/Connection objects.
+
+        Args:
+            line: A single stripped line from the map file.
+
+        Returns:
+            A dict of the extracted fields, or an empty dict if the
+            line doesn't match any recognized prefix.
+
+        Raises:
+            Exception: If a `zone=` metadata value isn't one of the
+                four valid zone types (normal, blocked, restricted,
+                priority), as required by VII.4.
+        """
         if line.startswith("nb_drones"):
             key, value = line.split(":")
             drone_info = {

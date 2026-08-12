@@ -1,3 +1,4 @@
+"""Real-time Tkinter view of the drone simulation (VII.1: visual feedback)."""
 import tkinter as tk
 import math
 from system import Graph, Zone, Drone
@@ -303,6 +304,15 @@ class Visualizer:
             )
 
     def update(self, drone_list: list["Drone"], tour: int) -> None:
+        """Redraw the zone labels and drones for the current turn.
+
+        Called once per simulation turn from Simulation.run(). Does
+        nothing if the user has already closed the window.
+
+        Args:
+            drone_list: All drones in the simulation, current turn.
+            tour: The current turn number, shown in the status bar.
+        """
         if self.closed:
             return
 
@@ -320,6 +330,10 @@ class Visualizer:
         self.root.destroy()
 
     def wait_until_closed(self) -> None:
+        """Block on the Tkinter event loop until the window is closed.
 
+        Called once, after the simulation ends, so the final state
+        stays visible until the user is done looking at it.
+        """
         if not self.closed:
             self.root.mainloop()

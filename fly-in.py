@@ -1,3 +1,4 @@
+"""Entry point: parses a map, then runs the turn-by-turn drone simulation."""
 from __future__ import annotations
 from system import ZoneType, Zone, Drone, DroneState, Graph
 from parser import Parser
@@ -11,6 +12,12 @@ import time
 
 @dataclass(order=True)
 class PathNode:
+    """An entry in the Dijkstra priority queue.
+
+    Only `cost` participates in comparisons (order=True + compare=False
+    on the other fields), so heapq always pops the cheapest node next.
+    """
+
     cost: int
     zone: Zone = field(compare=False)
     path: list[Zone] = field(compare=False, default_factory=list)
@@ -61,6 +68,8 @@ class Pathfinder:
 
 
 class DroneFactory():
+    """Builds Drone instances, keeping their creation logic in one place."""
+
     def __init__(self) -> None:
         pass
 
@@ -70,6 +79,16 @@ class DroneFactory():
         start_zone: Zone,
         path: list[Zone]
     ) -> Drone:
+        """Create a new drone starting at start_zone, following path.
+
+        Args:
+            id: The drone's unique identifier (used as D<id> in logs).
+            start_zone: The zone the drone begins in (always graph.start).
+            path: The full zone-by-zone route the drone will follow.
+
+        Returns:
+            The newly created Drone, in DroneState.MOVING.
+        """
         return Drone(drone_id=id, current_zone=start_zone, path=path)
 
 
@@ -144,6 +163,20 @@ class Simulation:
         return False
 
     def change_path(self, drone: Drone) -> bool:
+        """Recompute a fresh shortest path for a congested drone.
+
+        Called once a drone's target zone has more than 2 drones
+        queued, so it can re-route around the bottleneck instead of
+        waiting indefinitely.
+
+        Args:
+            drone: The drone to re-route, starting from its current
+                position in its old path.
+
+        Returns:
+            True and updates drone.path if a new path was found,
+            False if the destination is now unreachable.
+        """
         assert self.graph.end is not None  # guaranteed by Parser.parse_file()
         new_path = self.pathfinder.find_shortest_path(
             self.graph, drone.path[drone.path_index], self.graph.end
@@ -155,6 +188,13 @@ class Simulation:
             return False
 
     def run(self) -> None:
+        """Drive the simulation until every drone reaches the end zone.
+
+        Each iteration is one simulation turn: every drone attempts
+        one move (or joins/leaves its target zone's waiting queue),
+        the turn's moves are printed in the "D<id>-<zone>" format
+        required by VII.5, and the visualizer is refreshed.
+        """
         i = 0
         # main loop
         while (
