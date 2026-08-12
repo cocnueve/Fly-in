@@ -3,10 +3,6 @@ import math
 from system import Graph, Zone, Drone
 
 
-# =========================
-# VISUAL CONFIGURATION
-# =========================
-
 ZONE_COLORS = {
     "blue": "#4a90d9",
     "red": "#d62d06",
@@ -230,13 +226,8 @@ class Visualizer:
         for drone in drone_list:
             if drone.path is None:
                 continue
-            zone = drone.path[
-                drone.path_index
-            ]
-            grouped.setdefault(
-                zone.name,
-                []
-            ).append(drone)
+            zone = drone.path[drone.path_index]
+            grouped.setdefault(zone.name, []).append(drone)
 
         for zone_name, drones in grouped.items():
             if zone_name not in self.zone_pos:
@@ -254,19 +245,9 @@ class Visualizer:
                     * i
                     / max(count, 1)
                 )
-                dx = (
-                    cx
-                    + radius
-                    * math.cos(angle)
-                )
-                dy = (
-                    cy
-                    + radius
-                    * math.sin(angle)
-                )
-                color = self._drone_color(
-                    drone
-                )
+                dx = (cx + radius * math.cos(angle))
+                dy = (cy + radius * math.sin(angle))
+                color = self._drone_color(drone)
                 circle = self.canvas.create_oval(
                     dx - DRONE_RADIUS,
                     dy - DRONE_RADIUS,
@@ -283,12 +264,7 @@ class Visualizer:
                     ),
                     font=("Consolas", 8, "bold")
                 )
-                self.drone_items.extend(
-                    [
-                        circle,
-                        text
-                    ]
-                )
+                self.drone_items.extend([circle, text])
 
     def _draw_legend(self) -> None:
         x = self.width - 150
