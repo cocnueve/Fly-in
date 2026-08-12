@@ -44,7 +44,10 @@ class Visualizer:
     - waiting-queue display
     """
 
-    def __init__(self, graph: "Graph", width: int = 1920, height: int = 1080) -> None:
+    def __init__(
+        self, graph: "Graph",
+        width: int = 1920, height: int = 1080
+    ) -> None:
 
         self.graph = graph
         self.closed = False

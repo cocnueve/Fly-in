@@ -35,9 +35,13 @@ class Parser:
                     if "nb_drones" in temp_dict:
                         graph.nb_drones = temp_dict['nb_drones']
                     elif "zone_name" in temp_dict:
-                        is_hub_endpoint = temp_dict["kind"] in ("start_hub", "end_hub")
+                        is_hub_endpoint = temp_dict["kind"] in (
+                            "start_hub", "end_hub"
+                            )
                         if temp_dict["zone_name"] in parse_dict:
-                            raise Exception(f"duplicate zone: {temp_dict['zone_name']}")
+                            raise Exception(
+                                f"duplicate zone: {temp_dict['zone_name']}"
+                                )
                         if is_hub_endpoint:
                             zone = Zone(
                                 name=temp_dict["zone_name"],
@@ -59,7 +63,6 @@ class Parser:
                             zone.zone_type = temp_dict["zone"]
                         if "color" in temp_dict:
                             zone.color = temp_dict["color"]
-                        # max_drones from the file is ignored on start_hub/end_hub (subject VII.4)
                         if "max_drones" in temp_dict and not is_hub_endpoint:
                             zone.max_drones = int(temp_dict["max_drones"])
                         z += 1
@@ -71,13 +74,17 @@ class Parser:
 
                         if loc_a is None or loc_b is None:
                             raise Exception(
-                                f"Wrong connection : {temp_dict['loc_a']} - {temp_dict['loc_b']}"
+                                f"Wrong connection : {temp_dict['loc_a']} "
+                                f"- {temp_dict['loc_b']}"
                             )
 
-                        pair = frozenset((temp_dict["loc_a"], temp_dict["loc_b"]))
+                        pair = frozenset(
+                            (temp_dict["loc_a"], temp_dict["loc_b"])
+                            )
                         if pair in seen_connections:
                             raise Exception(
-                                f"Duplicate connection: {temp_dict['loc_a']}-{temp_dict['loc_b']}"
+                                f"Duplicate connection: {temp_dict['loc_a']}"
+                                f"-{temp_dict['loc_b']}"
                             )
                         seen_connections.add(pair)
 
@@ -90,7 +97,9 @@ class Parser:
                             conn.max_link = int(temp_dict["max_link_capacity"])
 
                         if "current_usage" in temp_dict:
-                            conn.current_usage = int(temp_dict["current_usage"])
+                            conn.current_usage = int(
+                                temp_dict["current_usage"]
+                                )
 
                         conn_list.append(conn)
 
@@ -102,8 +111,13 @@ class Parser:
                             champ = error["loc"][0]
                             message = error["msg"]
                             fail_input = error["input"]
-                            details.append(f"{champ}: {message} ({fail_input!r} is not the good value)")
-                        raise ValueError(f"line {i} ('{line}'): " + "; ".join(details)) from e
+                            details.append(
+                                f"{champ}: {message} "
+                                f"({fail_input!r} is not the good value)"
+                            )
+                        raise ValueError(
+                            f"line {i} ('{line}'): " + "; ".join(details)
+                        ) from e
                     else:
                         raise ValueError(f"line {i} ('{line}'): {e}") from e
         except Exception as err:

@@ -64,38 +64,49 @@ class DroneFactory():
     def __init__(self) -> None:
         pass
 
-    def create_drone(self, id: int, start_zone: Zone, path: list[Zone]) -> Drone:
+    def create_drone(
+        self,
+        id: int,
+        start_zone: Zone,
+        path: list[Zone]
+    ) -> Drone:
         return Drone(drone_id=id, current_zone=start_zone, path=path)
 
 
 class Simulation:
     """Manage drone movement across the graph, turn by turn."""
 
-    def __init__(self, graph: Graph, pathfinder: Pathfinder, drone_list: list[Drone], vis: Visualizer):
+    def __init__(
+        self, graph: Graph, pathfinder: Pathfinder,
+        drone_list: list[Drone], vis: Visualizer
+    ):
         self.graph = graph
         self.pathfinder = pathfinder
         self.drone_list = drone_list
         self.vis = vis
 
     def move_drone(self, drone: Drone) -> bool:
-
-        if drone.path[drone.path_index] is not None:  # check that a previous zone exists.
+        """Method that return a bool in function the drone moved"""
+        if drone.path[drone.path_index] is not None:
             if drone.path_index < len(drone.path) - 1:
-                current_zone = drone.path[drone.path_index]  # previous zone.
+                current_zone = drone.path[drone.path_index]
                 next_zone = drone.path[drone.path_index + 1]
                 if drone.check_conn(self.graph) is True:
-                    assert drone.on_connection is not None  # guaranteed by check_conn() == True
-
-                    if next_zone.is_accessible() == 1 and drone.state == DroneState.MOVING:
-                        # restricted zone: also count drones already in flight toward it,
-                        # not just the ones already arrived, so it isn't overbooked 2 turns ahead.
+                    assert drone.on_connection is not None
+                    if (
+                        next_zone.is_accessible() == 1
+                        and drone.state == DroneState.MOVING
+                    ):
                         already_in_flight = sum(
                             1 for d in self.drone_list
                             if d.state == DroneState.IN_TRANSIT
                             and d.path_index < len(d.path) - 1
                             and d.path[d.path_index + 1] == next_zone
                         )
-                        if len(next_zone.current_drones) + already_in_flight >= next_zone.max_drones:
+                        if (
+                            len(next_zone.current_drones) + already_in_flight
+                            >= next_zone.max_drones
+                        ):
                             return False
 
                     result = next_zone.add_drone(drone)
@@ -146,47 +157,61 @@ class Simulation:
     def run(self) -> None:
         i = 0
         # main loop
-        while any(drone.state != DroneState.ARRIVED for drone in self.drone_list):
+        while (
+            any(drone.state != DroneState.ARRIVED
+                for drone in self.drone_list)
+        ):
             i += 1
-            if i > 200:  # safety for dodge overflow.
-                print("The program has been automaticly close, it overpassed the 200 tries.")
+            if i > 200:
+                print(
+                    "The program has been automaticly close,"
+                    " it overpassed the 200 tries."
+                )
                 sys.exit()
-            turn_moves = []  # this turn's "D<id>-<zone>" list, for the text output (VII.5)
+            turn_moves = []
             for drone in self.drone_list:
-                if drone.on_connection is not None:  # set connection pointed by the drone to 0.
+                if drone.on_connection is not None:
                     drone.on_connection.change_usage(0)
                 if drone.state == DroneState.ARRIVED:
                     continue
 
                 if drone.path_index < len(drone.path) - 1:
-                    drone.update_zone()  # update target zones of the drone.
-                    assert drone.next_zone is not None  # guaranteed as long as the drone hasn't arrived
-                    result = self.move_drone(drone)  # moves the drone and returns whether it worked.
+                    drone.update_zone()
+                    assert drone.next_zone is not None
+                    result = self.move_drone(drone)
 
                     if result is True:
                         label = drone.path[drone.path_index].name
                         turn_moves.append(f"D{drone.drone_id}-{label}")
-                    elif drone.state == DroneState.IN_TRANSIT and drone.on_connection is not None:
-                        # the drone is in flight toward a restricted zone (2 turns): show the connection
+                    elif (
+                        drone.state == DroneState.IN_TRANSIT
+                        and drone.on_connection is not None
+                    ):
                         conn = drone.on_connection
-                        turn_moves.append(f"D{drone.drone_id}-{conn.zone_a.name}-{conn.zone_b.name}")
+                        turn_moves.append(
+                            f"D{drone.drone_id}-"
+                            f"{conn.zone_a.name}-{conn.zone_b.name}"
+                            )
 
                     if result is False:
-                        if drone.remain < 1:  # If the drone isn't waiting yet, it joins the queue.
+                        if drone.remain < 1:
                             drone.next_zone.waiting += 1
                             drone.remain += 1
 
-                        if drone.next_zone.waiting > 2:  # queue too long -> recompute a path
+                        if drone.next_zone.waiting > 2:
                             self.change_path(drone)
-                            if drone.remain > 0:  # If the drone was waiting, it leaves the queue
+                            if drone.remain > 0:
                                 drone.remain -= 1
                                 drone.next_zone.waiting -= 1
-                    elif result is True and drone.next_zone.waiting > 0 and drone.remain > 0:
-                        # If the drone moved while it was in the queue, it leaves it
+                    elif (
+                        result is True and drone.next_zone.waiting > 0
+                        and drone.remain > 0
+                    ):
                         drone.remain -= 1
                         drone.next_zone.waiting -= 1
-                else:  # If the drone reached the end of its path, it changes drone_state.
+                else:
                     drone.state = DroneState.ARRIVED
+                drone.has_arrived()
 
             print(" ".join(turn_moves))
             self.vis.update(self.drone_list, i)
@@ -202,19 +227,29 @@ if __name__ == "__main__":
     try:
         parser = Parser()
         pathfinder = Pathfinder()
-        graph = parser.parse_file("/home/ffeder/Desktop/3e cercle/Fly-in/config.txt")
-        assert graph.start is not None and graph.end is not None  # guaranteed by Parser.parse_file()
-        pathfinded = pathfinder.find_shortest_path(graph, graph.start, graph.end)
+        if len(sys.argv) <= 1:
+            raise ValueError("no args detected")
+        elif len(sys.argv) > 2:
+            raise ValueError("too many args detected")
+        graph = parser.parse_file(sys.argv[1])
+        assert (
+            graph.start is not None
+            and graph.end is not None
+        )
+        pathfinded = pathfinder.find_shortest_path(
+            graph, graph.start, graph.end
+        )
         if pathfinded is None:
             print("Error: no path found between start and end.")
             sys.exit()
         fact = DroneFactory()
         drone_list = []
-    except Exception:
-        raise
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
     vis = Visualizer(graph)
-    TOUR_DELAY = 0.7  # seconds between tours, purely so you can watch it happen
+    TOUR_DELAY = 0.7
 
     # drone factory
     for i in range(graph.nb_drones):

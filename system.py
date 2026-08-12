@@ -18,7 +18,7 @@ class Zone(BaseModel):
     zone_type: ZoneType = Field(default=ZoneType.NORMAL)
     color: Optional[str] = Field(default=None)
     max_drones: int = Field(default=1, ge=0, le=25)
-    current_drones: List["Drone"] = Field(default_factory=list)  # drones present this turn
+    current_drones: List["Drone"] = Field(default_factory=list)
     waiting: int = Field(default=0, ge=0, le=1000)
     temp_zone: Optional["ZoneType"] = Field(default=None)
     temp_drone: Optional["Drone"] = Field(default=None)
@@ -84,7 +84,10 @@ class Zone(BaseModel):
         if drone in self.current_drones:
             self.current_drones.remove(drone)
 
-            if self.zone_type == ZoneType.BLOCKED and self.temp_zone is not None:
+            if (
+                self.zone_type == ZoneType.BLOCKED
+                and self.temp_zone is not None
+            ):
                 self.zone_type = self.temp_zone
 
             return True
@@ -94,7 +97,8 @@ class Zone(BaseModel):
     def info(self) -> str:
         return (
             f"Name: {self.name}\nCoordinate: X={self.x}, Y={self.y}\
-            \nZoneType: {self.zone_type}\nMax drone authorized: {self.max_drones}\
+            \nZoneType: {self.zone_type}\nMax drone authorized: \
+            {self.max_drones}\
             \nCurrent drones: {len(self.current_drones)}"
         )
 
@@ -103,7 +107,7 @@ class Connection(BaseModel):
     zone_a: Zone
     zone_b: Zone
     max_link: int = Field(default=1, ge=0, le=5)
-    current_usage: int = Field(default=0, ge=0, le=5)  # drones in transit this turn
+    current_usage: int = Field(default=0, ge=0, le=5)
 
     @model_validator(mode="after")
     def check_all(self) -> "Connection":
